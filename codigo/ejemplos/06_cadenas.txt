@@ -1,0 +1,7 @@
+<> < > <<> <@n @f @d @t> <// /* */>
+<con "comillas" y \barra>
+<sin cierre
+int
+<dos	columnas> p1i
+<niño> bool
+<>>

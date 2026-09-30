@@ -1,5 +1,7 @@
 # Analizador léxico
 
+> Copia histórica de la versión con varios archivos. La versión actual está en `../../codigo/analizador.l` y sus instrucciones están en `../../codigo/README.md`. Estos archivos se conservan como respaldo y no se incluyen en la entrega.
+
 Autores: Isaac Campos y Benyy Arriaga. Fecha: 29 de septiembre de 2026.
 
 Reconoce las nueve clases de `DescripProgAnalizadorLex_27-1.pdf`. Recibe un archivo, muestra la tabla de símbolos, las dos tablas de literales y la secuencia de tokens. Los errores se informan con su línea y el análisis continúa.

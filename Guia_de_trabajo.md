@@ -1,6 +1,6 @@
 # Guía de trabajo: analizador léxico con Flex
 
-> **Actualización del 29/09/2026:** esta guía conserva el proceso de aprendizaje anterior. A petición tuya, `analizador.l` ya contiene la implementación, junto con `tablas.c` y `tablas.h`. El cuaderno comentado original está en `apuntes/analizador_guiado.l.txt`. Consulta `README.md` para el funcionamiento actual y las decisiones que confirmaste; las afirmaciones históricas de esta guía sobre código pendiente ya no describen el estado del programa.
+> **Actualización del 29/09/2026:** el programa completo está en `codigo/analizador.l`, sin depender de otros archivos fuente. Consulta `codigo/README.md` para revisar su funcionamiento y los comandos individuales. Esta guía conserva el proceso de aprendizaje anterior; el cuaderno original está en `apuntes/analizador_guiado.l.txt` y la versión anterior separada en módulos está en `apuntes/version_modular/`. Las menciones históricas a código pendiente o a varios archivos no describen la entrega actual.
 
 Esta guía transforma el enunciado en una ruta de trabajo. No es un documento listo para entregar. La revisión del 28/09 conserva tus respuestas y añade correcciones explicadas a tus expresiones regulares; la implementación en C queda a tu cargo.
 

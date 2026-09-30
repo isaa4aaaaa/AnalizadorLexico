@@ -5,6 +5,7 @@
 # Fecha de realizacion: 29 Septiembre 2026
 
 import ctypes
+import json
 from pathlib import Path
 import re
 import subprocess
@@ -14,6 +15,7 @@ import unittest
 
 
 EJECUTABLE = str(Path(sys.argv.pop(1) if len(sys.argv) > 1 else './analizador').resolve())
+EJEMPLOS = Path(__file__).resolve().parent / 'ejemplos'
 
 
 class PruebasAnalizador(unittest.TestCase):
@@ -32,6 +34,7 @@ class PruebasAnalizador(unittest.TestCase):
         self.assertEqual(resultado.returncode, codigo, errores)
         self.assertNotIn('Sanitizer', errores)
         self.assertNotIn('runtime error:', errores)
+        self.assertIn('Errores lexicos: ' + str(errores.count('Linea ')), salida)
         tokens = [tuple(map(int, par)) for par in re.findall(r'^\((\d+),(-?\d+)\)$', salida, re.M)]
         return salida, errores, tokens
 
@@ -211,6 +214,85 @@ class PruebasAnalizador(unittest.TestCase):
                     resultado = subprocess.run([EJECUTABLE] + argumentos, capture_output=True, timeout=15)
                     self.assertEqual(resultado.returncode, 2)
                     self.assertNotEqual(resultado.stderr, b'')
+
+    # Los resultados se escribieron a partir del enunciado, no de la salida del programa.
+    def test_ejemplos_guardados(self):
+        esperados = json.loads((EJEMPLOS / 'esperados.json').read_text(encoding='utf-8'))
+        self.assertEqual(set(esperados), {archivo.name for archivo in EJEMPLOS.glob('*.txt')})
+        for nombre, datos in esperados.items():
+            with self.subTest(archivo=nombre):
+                salida, errores, tokens = self.analizar(
+                    (EJEMPLOS / nombre).read_bytes(), datos['codigo']
+                )
+                self.assertEqual(tokens, [tuple(par) for par in datos['tokens']])
+                self.assertEqual(self.filas(salida, 'TABLA DE SIMBOLOS'),
+                                 [f'{i}\t{texto}\t-1' for i, texto in enumerate(datos['simbolos'])])
+                for titulo, campo in [('LITERALES REALES', 'reales'), ('LITERALES CADENA', 'cadenas')]:
+                    self.assertEqual(self.filas(salida, titulo),
+                                     [f'{i}\t"{texto}"' for i, texto in enumerate(datos[campo])])
+                lineas = [int(numero) for numero in re.findall(r'^Linea (\d+):', errores, re.M)]
+                self.assertEqual(lineas, datos['lineas_error'])
+
+    def test_cada_clase_al_final_sin_salto(self):
+        casos = [('decisión', (0, 4)), ('I_fin_I', (1, 0)), (':%', (2, 5)),
+                 ('d/i', (3, 5)), ('&*&', (4, 6)), ('::=', (5, 3)),
+                 ('n10i', (6, -10)), ('-1e-3', (7, 0)), ('<>', (8, 0))]
+        for texto, token in casos:
+            with self.subTest(texto=texto):
+                _, errores, tokens = self.analizar(texto)
+                self.assertEqual(tokens, [token])
+                self.assertEqual(errores, '')
+
+    def test_finales_incompletos(self):
+        for texto in ['<', '/*', '/* *', '/* **', ':', '&', 'I_', 'p']:
+            with self.subTest(texto=texto):
+                _, errores, tokens = self.analizar(texto, 1)
+                self.assertEqual(tokens, [])
+                self.assertIn('Linea 1:', errores)
+
+    def test_finales_de_linea_windows(self):
+        _, errores, tokens = self.analizar(b'int\r\n/* a\r\nb */\r\n? bool\r\n', 1)
+        self.assertEqual(tokens, [(0, 10), (0, 0)])
+        self.assertEqual(errores.count('Linea'), 1)
+        self.assertIn('Linea 4:', errores)
+
+    def test_bytes_desconocidos_fuera_de_cadena(self):
+        for valor in [0, 1, 31, 127, 128, 255]:
+            with self.subTest(byte=valor):
+                _, errores, tokens = self.analizar(bytes([valor]) + b' int', 1)
+                self.assertEqual(tokens, [(0, 10)])
+                self.assertEqual(errores.count('Linea'), 1)
+                self.assertIn(f'0x{valor:02X}', errores)
+
+    def test_enteros_pegados(self):
+        numeros = [0, 1, -1, 10, -10, 101, -101, 1000000, -1000000]
+        entrada = ''.join('0i' if n == 0 else ('p' if n > 0 else 'n') + str(abs(n)) + 'i'
+                          for n in numeros)
+        _, _, tokens = self.analizar(entrada)
+        self.assertEqual(tokens, [(6, n) for n in numeros])
+
+    def test_capacidades_justas(self):
+        for cantidad in [15, 16, 17, 31, 32, 33, 63, 64, 65]:
+            with self.subTest(cantidad=cantidad):
+                nombres = [f'I_v{i}_I' for i in range(cantidad)]
+                salida, _, tokens = self.analizar(' '.join(nombres))
+                self.assertEqual(tokens, [(1, i) for i in range(cantidad)])
+                self.assertEqual(self.filas(salida, 'TABLA DE SIMBOLOS'),
+                                 [f'{i}\t{nombre}\t-1' for i, nombre in enumerate(nombres)])
+
+    def test_comentario_largo_y_cierres(self):
+        _, errores, tokens = self.analizar('/*' + '*' * 70000 + '/int/**//**/bool')
+        self.assertEqual(tokens, [(0, 10), (0, 0)])
+        self.assertEqual(errores, '')
+
+    def test_archivo_con_espacios_en_nombre(self):
+        with tempfile.TemporaryDirectory(prefix='prueba-lexico-') as carpeta:
+            archivo = Path(carpeta) / 'entrada con espacios.txt'
+            archivo.write_text('int', encoding='utf-8')
+            resultado = subprocess.run([EJECUTABLE, str(archivo)], capture_output=True, timeout=15)
+            self.assertEqual(resultado.returncode, 0)
+            self.assertEqual(resultado.stderr, b'')
+            self.assertIn(b'(0,10)', resultado.stdout)
 
 
 if __name__ == '__main__':

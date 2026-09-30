@@ -1,0 +1,7 @@
+int/* bloque
+con // dentro
+**/I_x_I:=p1i// resto
+/**/mostrar<// no es comentario>
+*/ bool
+/* segundo sin cierre
+int p99i

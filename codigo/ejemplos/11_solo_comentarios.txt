@@ -1,0 +1,6 @@
+// No hay componentes que deban generar tokens.
+
+/* int I_x_I := p1i
+   <texto> +q &*&
+*/
+ 	 

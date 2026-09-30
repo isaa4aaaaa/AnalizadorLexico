@@ -1,0 +1,5 @@
+bool cad cte def decisión elegir flot fls haz if int leer mientras mostrar para regresa vdd
+:= :+ :- :* :/ :%
++q -q +iq -iq :i d/i
+&+ &- &* &/ &&* &%& &*&
+@> $$ #? ::= ?= %~ +

@@ -1,0 +1,3 @@
+int I_x_I := p10i
+I_x_I I_X_I I_x_I
+1.0 1.0 <hola> <hola> <>

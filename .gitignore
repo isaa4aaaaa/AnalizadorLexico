@@ -1,2 +1,5 @@
-/analizador
-/lex.yy.c
+/codigo/analizador
+/codigo/lex.yy.c
+/codigo/resultados.txt
+/codigo/errores.txt
+/apuntes/version_modular/lex.yy.c
