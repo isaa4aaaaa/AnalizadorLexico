@@ -1,0 +1,901 @@
+/*
+ * REVISIÓN GUIADA — 28/09/2026
+ * Tus respuestas originales se conservan; los bloques REVISIÓN debajo de cada
+ * sección corrigen conceptos y proponen pasos para que tú los traduzcas a C.
+ * No hay funciones implementadas ni reglas activadas.
+ * Prioridad: enunciado de la tarea > Tema 2 para completar el diseño >
+ * DescripcionUsoLEX para organización y notación de Flex.
+ * Tema 2 pp. 1–3: ciclo de reconocimiento; pp. 5–7: tablas y errores;
+ * pp. 9–11: tokens y almacenamiento. La tarea cambia explícitamente el manejo
+ * de literales: insertar siempre; enteros como valor numérico en el token.
+ * Mi guía inicial sugería un solo .l: es una opción sencilla de organización,
+ * no una obligación de que todo el proyecto tenga un único archivo.
+ */
+
+/*
+ * ANALIZADOR LEXICO — CUADERNO SOCRATICO
+ *
+ * Este archivo es un andamio de comentarios, no una solución ni un programa
+ * terminado. Complétalo poco a poco. Conserva las preguntas que expliquen
+ * decisiones importantes y borra las que ya no aporten al documento final.
+ *
+ * Antes de comenzar:
+ * - ¿Cómo describirías el objetivo en dos o tres frases propias?
+ *      Se busca realizar un analizador lexico que sea capaz de reconocer las clases definidas en clase.
+ * - ¿Quién elaboró el programa y cuál es la fecha real de elaboración?
+ *      Alumno1, alumno2, xx/sep/2026
+ * - ¿Qué interpretación confirmaste para los puntos ambiguos del enunciado?
+ *      Ninguna, escribi mi propia interpretacion en la guia de trabajo y segui el documento que describe un analizador lexico
+ */
+
+%{
+/* ======================= BLOQUE C: DECLARACIONES ======================== */
+
+/* Bibliotecas
+ * ¿Qué biblioteca declara entrada/salida y manejo de archivos?
+ * stdin.h
+ * ¿Cuál declara reserva y liberación de memoria?
+ * stdlib.h
+ * ¿Cuál ofrece comparación, longitud y copia de cadenas?
+ * string.h
+ * ¿Necesitas una biblioteca para conversión numérica y detección de rango?
+ * Ni idea
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — bibliotecas
+ * Primero reúne las herramientas de C que usarán las funciones:
+ *   entrada, salida y archivos -> stdio.h (no stdin.h; stdin es un flujo);
+ *   reservar, redimensionar, liberar y convertir -> stdlib.h;
+ *   medir y comparar cadenas -> string.h;
+ *   detectar error de conversión -> errno.h;
+ *   consultar límites de int -> limits.h.
+ * No hace falta escribir tus propias funciones para abrir un archivo o comparar
+ * dos cadenas: esas bibliotecas ya declaran las operaciones correspondientes.
+ */
+
+#include stdio.h
+#include stdlib.h
+#include string.h
+#include errno.h
+#include limits.h
+
+/* Constantes y política de crecimiento
+ * ¿Qué nombres expresan mejor capacidad inicial y factor de crecimiento?
+ *  A que te refieres??
+ * ¿Cómo evitarás números mágicos dentro de las funciones?
+ *  Con DEFINE y asi
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — capacidad
+ * Cantidad usada = cuántos elementos existen; capacidad = cuántos caben.
+ * Ejemplo: una tabla con 3 entradas y espacio para 8 tiene usados=3, capacidad=8.
+ * Al insertar:
+ *   SI usados es igual a capacidad:
+ *     elegir una capacidad inicial pequeña si todavía es cero;
+ *     en otro caso, duplicar la capacidad;
+ *     reservar espacio suficiente para esa cantidad de elementos.
+ *   Escribir en el índice usados; después aumentar usados.
+ * El 8 es sólo un ejemplo de diseño, no un límite del lenguaje.
+ * Define nombres para esas decisiones; en C la directiva se escribe #define.
+ * La capacidad del arreglo y el límite de 32 caracteres de un identificador
+ * son cosas diferentes.
+ */
+
+/* Tipo Token
+ * El enunciado pide clase y valor.
+ * ¿Qué tipo de C corresponde a cada campo?
+ *  Para las clases un entero, para el valor puede ser un entero o un caracter entonces una cadena? y luego usar un atoi
+ * ¿Por qué el mismo campo valor puede representar un índice o un entero?
+ *  Porque para las clases que tienen catalogo/tabla se usa un indice, pero para la clase de enteros pues solo es el entero
+ */
+
+/* REVISIÓN / DISEÑO — token
+ * Una estructura agrupa campos que pertenecen al mismo objeto.
+ * Diseña un registro con clase entera y valor entero.
+ * El texto se guarda en las tablas, no en el campo valor del token.
+ * Ejemplos: int produce (0,10); n25i produce (6,-25); el primer identificador
+ * insertado produce (1,0). No conviertas índices o caracteres con atoi.
+ * Para comenzar puedes usar int en ambos campos y comprobar su rango.
+ * Que la secuencia de tokens crezca no significa que cambien los catálogos.
+ */
+
+
+
+/* Tipo EntradaSimbolo
+ * Debe contener posición, nombre y tipo inicialmente -1.
+ * ¿El nombre será un arreglo fijo o memoria reservada según su longitud?
+    memoria reservada segun su longitud
+ * ¿Quién será dueño de esa memoria?
+    No entiendo, un arreglo de arreglos??? tiene que ser una tipo tabla/matriz
+ */
+
+/* REVISIÓN / DISEÑO — entrada de símbolos
+ * Cada fila es una estructura con posición, nombre y tipo.
+ * Nombre será un apuntador a una copia del texto de longitud variable.
+ * La tabla será un arreglo de esas estructuras, no una matriz de caracteres.
+ * "Ser dueño" significa tener la responsabilidad de conservar y liberar
+ * esa copia. La tabla será dueña del nombre que la función de inserción copie.
+ * Al insertar:
+ *   posición <- cantidad actual;
+ *   nombre <- copia propia del identificador;
+ *   tipo <- -1.
+ * Aunque posición coincide con el índice, conserva el campo pedido explícitamente.
+ * No deduzcas el tipo a partir de una palabra anterior: eso corresponde a otra etapa.
+ */
+
+
+
+/* Tipo EntradaLiteral
+ * Debe contener posición y dato como cadena.
+ * ¿Pueden reales y cadenas compartir este mismo tipo?
+    no, o quiza si? con un atoi si es un real? no se
+ */
+
+/* REVISIÓN / DISEÑO — entrada de literales
+ * Sí pueden compartir el mismo tipo: posición entera y dato apuntando a texto.
+ * Habrá DOS tablas distintas que usan ese tipo, una para reales y otra para cadenas.
+ * El real -4.4E2 se guarda como ese texto exacto, sin convertirlo a double.
+ * Para cadenas conservamos tu decisión de guardar sólo el contenido.
+ * Una cadena vacía sigue necesitando memoria para su terminador de C.
+ */
+
+
+
+/* Colecciones dinámicas
+ * Para tokens, símbolos y cada tabla literal:
+ * - ¿dónde guardarás el apuntador al arreglo?
+        no se en una variable?
+ * - ¿dónde guardarás cantidad usada y capacidad?
+        Que? como? en una variable?
+ * - ¿qué estado inicial hace segura la primera inserción?
+        no se.........
+ */
+
+/* REVISIÓN / DISEÑO — las cuatro colecciones
+ * Para cada colección guarda tres datos: apuntador a elementos, usados, capacidad.
+ * Necesitas una colección de tokens, una de símbolos y dos de literales.
+ * Estado inicial propuesto: apuntador nulo, usados cero, capacidad cero.
+ * No escribas en el apuntador nulo: la primera inserción reservará espacio.
+ * Puedes agrupar esos tres datos en una estructura que represente una tabla.
+ * Para modificar esa tabla desde una función, pásale su dirección.
+ * Pasarla sólo por valor copiaría su contador y su apuntador; cambiar esa copia
+ * no actualizaría los campos originales del llamador.
+ */
+
+
+
+/* Catálogos fijos
+ * Transcribe cada catálogo en el orden exacto del enunciado:
+ * palabras reservadas (0..16), asignación (0..5), relacionales (0..5),
+ * aritméticos (0..6) y símbolos especiales (0..6).
+ *  Palabra reservada:
+    Valor, Palabra reservada, Equiv
+    0, bool, boolean
+    1, cad, cadena
+    2, cte, const
+    3, def, funciones
+    4, decision, switch
+    5, elegir, case 
+    6, flot, float
+    7, fls, false
+    8, haz, do
+    9, if, if
+    10, int, int
+    11, leer, leer
+    12, mientras, while
+    13, mostrar, escribe
+    14, para, for
+    15, regresa, return
+    16, vdd, true
+
+    Sim Especiales:
+    Valor, simbolo 
+    0, @>
+    1, $$
+    2, #?
+    3, ::=
+    4, ?=
+    5, %~
+    6, +
+
+    Operador asignacion:
+    Valor, Operador
+    0, :=
+    1, :+
+    2, :-
+    3, :*
+    4, :/
+    5, :%
+
+    Operador relacional:
+    Valor, Op OperadorRel, representan
+    0, +q, mayor que
+    1, -q, menor que
+    2, +iq, mayor o igual
+    3, -iq, menor o igual
+    4, :i, igual que
+    5, d/i, diferente A
+
+    Operador aritmetico:
+    Valor, Op aritmetico, representan
+    0, &+, suma
+    1, &-, resta 
+    2, &*, multiplica
+    3, &/, division
+    4, &&*, potencia
+    5, &%&, resuido
+    6, &*&, raiz cuadrada
+
+ * ¿Cómo harás que el índice del arreglo sea exactamente el valor del token?
+    no entiendo, pues seria igual porque empieza desde 0 no? o no?
+ * ¿Cómo calcularás el número de elementos a partir del propio arreglo?
+    no se con una funcion de lectura de tamaño ya sea con una biblioteca o con una función que recorra el arreglo
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — catálogos
+ * Crear cinco arreglos de textos fijos en el orden del enunciado.
+ * El índice es el valor porque TÚ colocas cada lexema en su posición asignada.
+ * No los llenes según vayan apareciendo: int siempre tiene valor 10.
+ * La palabra de posición 4 es "decisión", CON tilde (enunciado, página 2).
+ * Conserva esa escritura también en el patrón y guarda el archivo en UTF-8.
+ * La restricción ASCII 32..126 corresponde a cadenas, no a palabras reservadas.
+ * Donde todavía tienes el arreglo completo, su número de elementos se obtiene
+ * dividiendo su tamaño en bytes entre el tamaño de un elemento (sizeof).
+ * Dentro de una función que recibe sólo un apuntador ya no puedes deducirlo así:
+ * pasa también la cantidad.
+ * Para reservadas puedes conservar tu idea de una regla por palabra con valor fijo.
+ * Para operadores, una regla conjunta y búsqueda en su catálogo resulta sencilla.
+ */
+
+/* Prototipos: primero escribe contratos en español
+ *
+ * agregar_token:
+ * - ¿qué recibe y qué modifica?
+    recibe un token (cadena) y modifica la tabla de tokens global
+ * - ¿cómo informa un fallo de memoria?
+    detiene el programa y regresa el error
+ *
+ * buscar_en_catalogo:
+ * - ¿cómo puede servir la misma función a catálogos de distinto tamaño?
+    con punteros en lugar de leer algo fijo
+ * - ¿qué devuelve cuando no encuentra el lexema?
+    devuelve falso
+ *
+ * buscar_o_insertar_simbolo:
+ * - ¿qué comparación decide que dos identificadores son el mismo?
+    pues una comparación directa de "x" == "y"
+ * - ¿qué devuelve tanto al encontrar como al insertar?
+    al econtrar devuelve true, al insertar devuelve el puntero actualizado (quiza? quiza no devuelve nada....)
+ *
+ * insertar_literal:
+ * - ¿por qué NO debe buscar duplicados?
+    Porqueeeeeeeee...... solo debe insertar? otra funcion debe buscar previamente si ya existe o no 
+ * - ¿cómo evita conservar un apuntador temporal a yytext?
+    con free() que libera memoria?? o no....
+ *
+ * imprimir_resultados y liberar_recursos:
+ * - ¿qué orden de salida hará fácil revisar el programa?
+    Eh, no sé
+ * - ¿qué bloques y cadenas deben liberarse exactamente una vez?
+    no se tampoco .................. las tablas y catalogos?
+ */
+
+/* REVISIÓN / CONTRATOS — entradas y resultados de funciones
+ * agregar_token RECIBE clase y valor enteros; agrega un registro a la secuencia.
+ * buscar_en_catalogo RECIBE texto, catálogo y cantidad; DEVUELVE índice o -1.
+ * No devuelvas falso para "no encontrado": el índice 0 también es válido.
+ * buscar_o_insertar_simbolo RECIBE nombre; DEVUELVE posición tanto si ya estaba
+ * como si acaba de insertarlo.
+ * Comparar textos exige comparar contenido (strcmp devuelve cero si son iguales);
+ * == entre apuntadores compara direcciones, no el contenido de las cadenas.
+ * insertar_literal RECIBE la tabla elegida y el texto; DEVUELVE posición nueva.
+ * NO debe haber búsqueda de duplicados ni dentro ni antes de esta función.
+ * Copiar yytext conserva el dato; free no copia y no debe aplicarse a yytext.
+ * imprimir_resultados LEE las tablas y tokens.
+ * liberar_recursos LIBERA sólo memoria que reservaste.
+ * Un fallo de memoria puede detener el análisis con limpieza; un error léxico
+ * debe informarse y permitir continuar. Son situaciones diferentes.
+ */
+%}
+
+/* ====================== BLOQUE FLEX: DEFINICIONES ======================= */
+
+/* Opciones
+ * ¿Qué opción evita tener que proporcionar una función yywrap?
+    no se
+ * ¿Qué opción mantiene automáticamente el número de línea?
+    no se
+ * ¿El comportamiento predeterminado de Flex imprime texto no reconocido?
+    no se
+ * ¿Es compatible eso con tu estrategia explícita de errores?
+    no se
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — configurar Flex
+ * En la primera sección, fuera de %{ ... %}, decide:
+ *   noyywrap: terminar al acabar este archivo sin escribir una función yywrap;
+ *   yylineno: dejar a Flex mantener el número de línea.
+ * Son nombres de opciones de Flex que colocarás con la directiva %option.
+ * La regla predeterminada hace eco de caracteres no reconocidos.
+ * Por eso necesitas una regla final de error y cubrir saltos de línea.
+ * No incrementes manualmente la línea si activas el conteo automático.
+ * yytext = texto reconocido; yyleng = longitud; yyin = archivo de entrada;
+ * yylineno = línea actual; yylex = función que ejecuta el reconocimiento.
+ * No necesitas Bison para la salida de tokens y tablas pedida aquí.
+ */
+
+/* Estados
+ * ¿Un estado exclusivo para comentarios de bloque simplificaría:
+ *   a) consumir cualquier contenido,
+ *   b) contar saltos de línea y
+ *   c) detectar fin de archivo sin cierre?
+ * Dibuja las transiciones NORMAL -> COMENTARIO -> NORMAL antes de declararlo.
+    Eh no entiendo no seeeeEEeeEeEEEee
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — estado de comentario
+ * Un estado es un "modo" del analizador. No es el tipo de una variable.
+ * NORMAL:
+ *   reconocer tokens, espacios y comienzos de comentario.
+ * COMENTARIO:
+ *   reconocer cierre y contenido descartable; no reconocer tokens normales.
+ * Al ver apertura de bloque en NORMAL:
+ *   recordar la línea de apertura;
+ *   activar COMENTARIO.
+ * Al ver cierre en COMENTARIO:
+ *   volver a NORMAL (Flex llama INITIAL a ese estado).
+ * Para implementarlo después, busca %x para declarar un estado exclusivo y
+ * BEGIN para cambiar de estado. Las reglas limitadas al estado van con <NOMBRE>.
+ * No hace falta construir a mano el AFD: Flex lo genera desde los patrones.
+ * La apertura y el cierre del comentario son pares de caracteres, no tokens.
+ */
+
+/* Macros de expresiones regulares
+ * Construye de menor a mayor y prueba cada macro mentalmente:
+ * - dígito, dígito no cero, letra y carácter permitido en identificador;
+ * - prefijo, cuerpo y sufijo del identificador;
+ * - signo y partes de un real;
+ * - contenido permitido de una cadena sin consumir su cierre.
+ *
+ * ¿Qué macros representan una idea del lenguaje y cuáles sólo abrevian texto?{
+    no se no entiendo a que te refieres
+ }
+ */
+
+/* REVISIÓN / NOTACIÓN — correcciones a tus patrones
+ * Una macro aquí es un nombre para una expresión regular, no una función C.
+ * Se declara nombre seguido de patrón; se usa {nombre} dentro de otro patrón.
+ * Diferencias esenciales:
+ *   [abc] = UN carácter a, b o c; (ab|cd) = secuencia ab o secuencia cd.
+ *   {1,28} = de 1 a 28 repeticiones; {1-28} no expresa ese intervalo.
+ *   ? = cero o una; * = cero o más; + = una o más.
+ *   "texto" = texto literal en Flex. Usa comillas rectas, no tipográficas.
+ * La revisión completa de tus expresiones está al final de Guia_de_trabajo.md.
+ * En cada regla de abajo dejo el patrón corregido como COMENTARIO de referencia,
+ * para que tú escribas la definición y la acción.
+ */
+
+%%
+
+ /* ========================= REGLAS Y ACCIONES ============================ */
+
+ /* Delimitadores
+ * ¿Qué conjunto reúne espacio, tabulador y salto de línea?
+    Eh, no se
+ * ¿Por qué conviene consumir uno o más en una sola coincidencia?
+    porque ahorras operaciones???? no se! quiza buscar todas las ocurrencias de un salto de linea para bloques de espacio y cosas asi o tabulaciones largas
+    
+ * La acción no crea token: ¿necesita hacer algo más?
+    Pues avanzar
+    
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — delimitadores
+ * Referencia de patrón: [ \t\n]+
+ * CUANDO coincida:
+ *   no agregar token;
+ *   no modificar tablas;
+ *   dejar que Flex continúe después del fragmento consumido.
+ * Flex ya avanza al reconocerlo: no leas otro carácter desde la acción.
+ * Con yylineno, los saltos consumidos actualizan la línea automáticamente.
+ * Puedes añadir \r si decides aceptar archivos con finales de línea de Windows.
+ * Reconocer un bloque de espacios juntos evita ejecutar una acción por espacio.
+  */
+
+ /* Comentario de línea
+ * ¿Dónde empieza y hasta dónde llega sin robar el salto de línea?
+    eh,,,,,, no se? 
+ * ¿Quién actualizará la línea si el salto queda fuera de la coincidencia?
+    No se
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — comentario de línea
+ * Referencia de patrón: "//"[^\n]*
+ * Desde las dos barras, consumir hasta antes del salto de línea o hasta EOF.
+ * Descartar lo reconocido y dejar el salto para la regla de delimitadores.
+ * No generar token ni buscar identificadores dentro del comentario.
+ * Un comentario de línea al final del archivo no necesita un salto final.
+  */
+
+ /* Comentario de bloque
+ * Escribe reglas pequeñas para entrar al estado, salir, consumir saltos y
+ * consumir el resto. ¿Qué orden evita atascarse con '*' o '/' aislados?
+    no se
+ * ¿Qué acción de fin de archivo informa la línea donde comenzó el comentario?
+    no se
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — comentario de bloque
+ * EN NORMAL, al ver barra seguida de asterisco:
+ *   guardar la línea y entrar al estado COMENTARIO.
+ * EN COMENTARIO:
+ *   si ves asterisco seguido de barra, volver a INITIAL;
+ *   si ves salto de línea, consumirlo (Flex cuenta la línea);
+ *   si ves cualquier otro carácter, consumirlo sin token.
+ *   si llegas a EOF, informar "comentario sin cerrar" con la línea de apertura
+ *   y terminar el escaneo; no intentar seguir leyendo EOF indefinidamente.
+ * Regla de cierre antes que descarte por claridad; Flex prefiere la más larga.
+ * No supongas anidamiento de comentarios: el enunciado no lo solicita.
+ * Dentro de este comentario guía escribimos los delimitadores con palabras
+ * para no cerrar accidentalmente el comentario del propio archivo .l.
+  */
+
+ /* Palabras reservadas — clase 0
+ * Decide entre reglas individuales y una regla conjunta con catálogo.
+ * Al reconocer: ¿cómo obtienes el valor y cómo agregas exactamente un token?
+    el valor solo es el indice, agregas un token a la lista con algo as como (0,0) y asi.
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 0
+ * Con tu propuesta de una regla por palabra:
+ *   reconocer la palabra literal;
+ *   obtener su valor FIJO del catálogo;
+ *   llamar a agregar_token con clase 0 y ese valor.
+ * Ejemplo: aunque int sea el primer texto de entrada, su token es (0,10).
+ * Conserva orden de aparición en la SECUENCIA de tokens, no en el catálogo.
+ * Coincidencias exactas y sensibles a mayúsculas; recuerda "decisión".
+ * No uses una regla genérica para palabras de C: este lenguaje tiene otro catálogo.
+  */
+
+ /* Identificadores — clase 1
+ * ¿Tu patrón garantiza el límite de 32 o lo valida la acción?
+    eh no se
+ * ¿Cómo capturas como error completo uno demasiado largo?
+    con parar el program y avisar el error, o agregarlo a un tipo log de errores
+ * Al reconocer: llama conceptualmente a “buscar o insertar” y usa la posición.
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 1
+ * Referencia válida: "I_"[a-zA-Z0-9_]{1,28}"_I"
+ * Tu máximo 28 es correcto. Faltaba _ en el cuerpo y la coma del intervalo.
+ * I_hola__I e I_hola_I son dos nombres distintos, pero AMBOS válidos.
+ * El mínimo de un carácter en el cuerpo es tu decisión; el enunciado no lo fija.
+ * Para detectar uno largo sin aceptar primero un prefijo corto:
+ *   reconocer la forma completa "I_"[a-zA-Z0-9_]+"_I";
+ *   si su longitud total supera 32, reportar el error y no insertarlo;
+ *   en otro caso, buscar o insertar y agregar token (1,posición).
+ * Usa esta comprobación en la acción como alternativa al patrón acotado;
+ * no necesitas duplicar ambos métodos.
+ * Advertencia de frontera: I_a_II_b_I también cabe como UN identificador.
+ * Flex escoge el lexema más largo; no siempre puedes inferir dos identificadores
+ * adyacentes si su concatenación también es válida. Usa espacio para separarlos.
+  */
+
+ /* Operadores de asignación — clase 2
+ * ¿Qué lexemas comparten prefijos con otros componentes?
+    pues con el :i relacional
+ * ¿La acción puede reutilizar la búsqueda general de catálogo?
+    eh... si?
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 2
+ * Referencia: ":"[-=+/%*]
+ * En tu clase de caracteres el guion central podía interpretarse como rango.
+ * Al ponerlo al inicio representa un guion literal.
+ * CUANDO coincida:
+ *   buscar yytext en catálogo de asignación;
+ *   agregar token (2,índice).
+ * También existe ::=, símbolo especial; al poder reconocerlo completo,
+ * Flex elige esos tres caracteres antes que una coincidencia más corta.
+  */
+
+ /* Operadores relacionales — clase 3
+ * ¿Ordenaste los candidatos para que un lector vea primero los más largos?
+    eh, no
+ * ¿Qué garantiza Flex si dos reglas distintas coinciden con longitudes distintas?
+    no se
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 3
+ * Referencia: [+-]i?q|":i"|"d/i"
+ * Primer caso: un signo, una i opcional, una q obligatoria.
+ * Los otros dos casos son secuencias completas, no conjuntos de caracteres.
+ * [i{0-1}q] no significa "i opcional seguida de q".
+ * [:|d/] elegiría sólo UN carácter, incluyendo incluso la barra vertical.
+ * CUANDO coincida: buscar índice en catálogo relacional y agregar (3,índice).
+ * Flex elige primero la coincidencia más larga. Si hay empate de longitud,
+ * elige la regla que aparece primero. Ejemplo de empate: regla "if" y regla
+ * [a-z]+, ambas coinciden con if; para elegir la reservada debe ir antes.
+ * Este último patrón es sólo ejemplo de prioridad, no una regla a añadir aquí.
+  */
+
+ /* Operadores aritméticos — clase 4
+ * Revisa con especial cuidado los lexemas que comienzan igual.
+ * ¿Qué casos de prueba demuestran que no se parten accidentalmente?
+    no seeeeeee
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 4
+ * Referencia: "&&*"|"&%&"|"&*&"|"&+"|"&-"|"&*"|"&/"
+ * Tu patrón perdía el & inicial en algunas alternativas y no cubría &&*.
+ * Cada alternativa anterior es exactamente un lexema del catálogo.
+ * CUANDO coincida: buscar índice aritmético y agregar (4,índice).
+ * Prueba: &*& debe dar sólo (4,6), no (4,2) y un carácter sobrante.
+ * Flex hace la comparación de longitudes; no escribas un lector adicional
+ * para revisar manualmente el carácter posterior a &*.
+  */
+
+ /* Símbolos especiales — clase 5
+ * ¿Algún carácter tiene significado especial dentro de una expresión de Flex?
+    no se
+ * ¿Cómo lo representarás sin cambiar el lexema que debe reconocerse?
+    ah pues escapandolo no? con \
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 5
+ * Tu patrón está bien. Forma equivalente más fácil de leer:
+ *   "@>"|"$$"|"#?"|"::="|"?="|"%~"|"+"
+ * Las comillas convierten los metacaracteres en texto literal.
+ * CUANDO coincida: buscar índice en catálogo de especiales y agregar (5,índice).
+ * El + aislado es especial; +q completo es relacional por ser más largo.
+ * Que escribas primero un patrón largo ayuda a leer, pero la longitud decide
+ * antes que el orden de las reglas.
+  */
+
+ /* Constantes enteras — clase 6
+ * Separa 0i, positivos y negativos.
+ * ¿Qué parte de yytext no pertenece al número matemático?
+    no se
+ * ¿Cómo construyes el valor y cómo compruebas que cabe en el campo del token?
+    ehhhh no se???? atoi
+ * ¿Qué regla previa captura ceros con signo u otras formas casi válidas?
+    eh?
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 6
+ * Referencia: 0i|[pn][1-9][0-9]*i
+ * Tu [1-9]+ rechaza p10i y n205i: sólo el PRIMER dígito no puede ser cero.
+ * Mantengo tu decisión de no admitir ceros iniciales ni enteros sin p/n salvo 0i.
+ * CUANDO coincida:
+ *   si es 0i, el valor es cero;
+ *   en otro caso, hacer texto temporal con signo + o - y los dígitos sin la i;
+ *   convertir ese texto con strtol en base 10;
+ *   comprobar que la conversión consumió todo el texto;
+ *   comprobar ERANGE y que el resultado cabe entre INT_MIN e INT_MAX;
+ *   si es válido, agregar (6,valor); si no, informar error y continuar.
+ * Antes de convertir, restablecer errno para no confundir un error anterior.
+ * Convertir con signo permite tratar correctamente el mínimo negativo de int.
+ * atoi no te da el control de errores de rango que necesitas.
+ * El patrón válido no basta para rechazar p0i como una unidad: añade una regla
+ * más amplia para formas p/n + dígitos + i después de la válida. En empates
+ * gana la válida; los ceros inválidos completos llegan a la regla de error.
+  */
+
+ /* Constantes reales — clase 7
+ * Une las alternativas que derivaste de los ejemplos, no de suposiciones.
+ * ¿Por qué se inserta el texto en la tabla aunque ya exista?
+    que?
+ * ¿Guardarás el lexema completo o una versión sin signo/formato? Documenta eso.
+    no se
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 7
+ * Referencia de partes:
+ *   decimal: [0-9]*[.][0-9]+
+ *   exponente: [eE]-?[0-9]+
+ *   real completo: -?([0-9]*[.][0-9]+([eE]-?[0-9]+)?|[0-9]+[eE]-?[0-9]+)
+ * Mantengo tus decisiones: sólo menos opcional y al menos un dígito tras el punto.
+ * Corrige [1-9] por [0-9] donde sí cabe cero; usa paréntesis para agrupar.
+ * [e|E] aceptaría también |; [eE] acepta sólo las dos letras.
+ * El patrón permite 1.0, .24, -2.2, 32e-3, -4.4E2 y 1e10.
+ * CUANDO coincida:
+ *   copiar el lexema COMPLETO a una nueva entrada de la tabla de reales;
+ *   agregar (7,nueva posición).
+ * No usar atoi ni double; la tarea pide almacenar el dato como cadena.
+ * Una misma representación repetida genera otra entrada cada vez.
+  */
+
+ /* Constantes cadena — clase 8
+ * ¿Cómo permites cero caracteres internos?
+    Pues revisando una longitud minima
+ * ¿Cómo excluyes el delimitador final y los saltos de línea del contenido?
+    no se revisando que no aparezcan??
+ * ¿Qué debe guardarse en la tabla y cómo se copia antes de que cambie yytext?
+    ehhhhhhh no seeeeeeeee
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — clase 8
+ * Referencia siguiendo el intervalo del enunciado y cierre al primer >:
+ *   "<"[\x20-\x3D\x3F-\x7E]*">"
+ * Son los bytes ASCII 32..126 excepto > (62), reservado para cerrar.
+ * El * permite <>. Tu + lo impedía, y exigir @ al final también era incorrecto.
+ * El salto de línea es 10 y NO pertenece a 32..126.
+ * La palabra ASCII dentro de [] no declara el conjunto ASCII.
+ * CUANDO coincida:
+ *   tomar los yyleng menos dos caracteres entre los delimitadores;
+ *   copiarlos a una cadena propia con terminador nulo;
+ *   insertar siempre en tabla de cadenas;
+ *   agregar (8,nueva posición).
+ * @n, @f, @d y @t se conservan como texto; este trabajo no pide sustituirlos.
+ * No cambies esos marcadores por %d: cambiarías el lenguaje del enunciado.
+ * Tu decisión de prohibir también < interno añade una restricción: < es ASCII 60.
+ * La guía explica ambas variantes; el patrón de arriba sigue la lectura literal
+ * del intervalo, permite <<> y no reconoce <>> como una sola cadena.
+ * Los marcadores de comentario dentro de una cadena son contenido normal.
+  */
+
+ /* Formas inválidas específicas
+ * Antes de la regla genérica, ¿qué familias erróneas merecen un mensaje único?
+    la longitud y clases que no existen y cosas asi??
+ * Piensa en identificador largo, entero mal formado, real incompleto, cadena sin
+ * cierre y cierre de comentario sin apertura.
+ * Cada acción de error: ¿consume texto, informa línea y permite continuar?
+    Informa linea y continua, pero no compila
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — errores concretos
+ * Definir primero qué fragmento consume cada error, sin tragarse el token siguiente.
+ *   Identificador demasiado largo con cierre: consumirlo completo y reportarlo.
+ *   Entero con cero inicial o cero con signo: consumir la forma completa.
+ *   Cadena sin cierre: recordar línea inicial y descartar hasta salto o EOF.
+ *   Cadena con carácter prohibido: informar y recuperar hasta cierre, salto o EOF.
+ *   Comentario sin cierre: informar al alcanzar EOF en estado COMENTARIO.
+ * Para cadena sin cierre puedes añadir una regla que cubra su prefijo sin >:
+ * la válida gana si está el cierre porque es más larga. Para caracteres internos
+ * inválidos conviene un modo de recuperación que descarte el resto de esa cadena.
+ * No hagas una regla global "todo hasta el espacio": podría absorber tokens
+ * válidos pegados, por ejemplo I_x_I:=p1i.
+ * Un real incompleto exige una decisión adicional: ante 1.2e, Flex podría emitir
+ * el real 1.2 y luego reportar e. Documenta esa política si no implementas una
+ * regla específica; Tema 2, páginas 6–7, distingue estas estrategias.
+ * Al reportar: guardar que hubo error, mostrar línea y fragmento, no emitir token
+ * para el fragmento inválido y seguir. No uses exit por cada error léxico.
+ * "El analizador compila" y "el archivo analizado tiene errores" son cosas distintas.
+  */
+
+ /* Error genérico
+ * Debe ir al final. ¿Cuál es la unidad mínima que siempre hace avanzar?
+    que? un token?
+ * ¿Qué datos imprimirás para que el usuario localice y comprenda el carácter?
+    mmmm numero de linea pero eso dificulta todo es cierto!!! no se supongo que es mas sencillo que solo acabe y muestre el error que encuentre primero, si no pues tratar de encontrar la linea pero no se que tan complejo haga todo creo que ya entendi
+ */
+
+ /* REVISIÓN / PSEUDOCÓDIGO — último recurso
+ * Al final, un patrón . permite consumir un carácter que no sea salto de línea.
+ * El salto ya debe estar cubierto por espacios o por reglas del estado activo.
+ * CUANDO coincida:
+ *   informar línea y carácter no reconocido;
+ *   aumentar el contador de errores;
+ *   no agregar token;
+ *   continuar automáticamente.
+ * La unidad mínima es UN carácter de entrada, no un token.
+ * Con yylineno no necesitas inventar una búsqueda posterior de líneas.
+ * El enunciado obliga a continuar, aunque al final devuelvas estado de error.
+  */
+
+%%
+
+/* ===================== BLOQUE C: IMPLEMENTACION ========================= */
+
+/* Escribe una función a la vez en el mismo orden que sus contratos.
+ * Para cada función contesta antes:
+ * - ¿cuáles son sus precondiciones?
+ * - ¿qué estado cambia si tiene éxito?
+ * - ¿qué deja intacto si falla?
+ * - ¿quién maneja el error que devuelve?
+ */
+
+/* REVISIÓN / PLAN — implementación C
+ * Escribe primero los ayudantes de memoria, después operaciones de tablas,
+ * luego impresión y limpieza, y al final main.
+ * Para empezar puedes tener colecciones globales con nombres claros.
+ * Si encapsulas una tabla en una estructura, recuerda que la función que cambia
+ * sus campos debe recibir su dirección. No necesitas una tabla genérica compleja.
+ * En el modelo de Tema 2 se entregan tokens al sintáctico; aquí sólo debes
+ * acumularlos para mostrarlos, como pide el enunciado de la tarea.
+ */
+
+/* Ayudante para copiar cadenas
+    no se
+ * ¿Cuántos bytes requiere una cadena de longitud n incluyendo el terminador?
+    eh no se n+1?
+ * ¿En qué momento puedes copiar yytext de forma segura?
+    ni idea cuando se libera la memoria??
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — copiar texto
+ * RECIBIR origen y número de caracteres que quieres conservar.
+ * RESERVAR longitud + 1 bytes.
+ * SI falla: informar fallo de memoria y conducir a la limpieza.
+ * COPIAR exactamente longitud caracteres.
+ * COLOCAR el terminador nulo en la posición longitud.
+ * DEVOLVER la dirección de la copia.
+ * Tu respuesta n+1 es correcta. Para cadena vacía se reserva un byte.
+ * Haz la copia durante la acción, antes de que el siguiente reconocimiento
+ * cambie yytext. No esperes a liberar nada y no liberes el buffer de Flex.
+ */
+
+/* Ayudante para crecer arreglos
+    no se
+ * ¿Puedes centralizar la lógica o los tipos diferentes piden funciones pequeñas?
+    ehhhhhhh mmmmm depende como se manejen los numeros, si no quiza si porque son cadenas?
+ * Si la redimensión falla, ¿por qué no debes sobrescribir primero el apuntador?
+    no se
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — asegurar espacio
+ * RECIBIR la colección que se va a modificar.
+ * SI usados es menor que capacidad: ya hay espacio, terminar con éxito.
+ * CALCULAR capacidad nueva: inicial si era cero, en otro caso el doble.
+ * COMPROBAR que el cálculo de capacidad y de bytes no desborda.
+ * PEDIR la redimensión y guardar su resultado en un apuntador temporal.
+ * SI falla: mantener el apuntador original y reportar fallo.
+ * SI funciona: actualizar apuntador y capacidad.
+ * No incrementar usados aquí: todavía no se ha insertado ningún elemento.
+ * realloc puede mover el arreglo; por eso debes guardar el nuevo apuntador.
+ * Puedes escribir ayudantes separados para tokens, símbolos y literales;
+ * no hace falta empezar con void** o una función universal.
+ */
+
+/* agregar_token */
+
+/* REVISIÓN / PSEUDOCÓDIGO — agregar_token
+ * RECIBIR clase y valor enteros.
+ * ASEGURAR un espacio libre en la colección de tokens.
+ * GUARDAR ambos campos en el elemento de índice usados.
+ * INCREMENTAR usados sólo después de guardar el elemento.
+ * DEVOLVER éxito o fallo.
+ * Todas las acciones reutilizan estos mismos pasos.
+ * No recibe una cadena "(x,x)": ese formato se crea sólo al imprimir.
+ */
+    /* Respuesta original: no se */
+
+/* buscar_en_catalogo */
+
+/* REVISIÓN / PSEUDOCÓDIGO — buscar_en_catalogo
+ * RECIBIR lexema, arreglo de textos y cantidad de entradas.
+ * PARA cada índice desde cero hasta cantidad menos uno:
+ *   comparar el texto recibido con el texto de esa entrada;
+ *   SI son iguales: devolver ese índice inmediatamente.
+ * SI se termina el recorrido: devolver -1.
+ * No insertar ni modificar el catálogo.
+ * Si una regla válida no encuentra su operador, revisa la consistencia de
+ * tu programa: no es un error que deba atribuirse al archivo de entrada.
+ */
+    /* Respuesta original: no se */
+
+/* buscar_o_insertar_simbolo
+    no se
+ * Recorre conceptualmente las entradas existentes.
+ * Si encuentra: ¿qué no debe modificar?
+    ehhhhhhhhhhhhhhh las tablas
+ * Si no encuentra: ¿en qué orden crece, copia, inicializa y aumenta el tamaño?
+    pues crece 1, copia el valor y lo pone en el espacio aumentado. lo de inicializar es si no hay nada y asi no?
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — buscar_o_insertar_simbolo
+ * RECORRER las filas existentes y comparar el nombre completo.
+ * SI alguna coincide: devolver su posición, sin cambiar nada.
+ * SI ninguna coincide:
+ *   asegurar espacio para una fila;
+ *   obtener copia propia del nombre (si falla, no incrementar usados);
+ *   posición nueva <- usados;
+ *   guardar posición, copia del nombre y tipo -1;
+ *   aumentar usados;
+ *   devolver posición nueva.
+ * Una búsqueda lineal recorre hasta n nombres; es suficiente como diseño inicial.
+ * Devolver true perdería la posición necesaria para el token.
+ * Crecer capacidad e incrementar usados son operaciones distintas.
+ */
+
+/* insertar_literal
+    no se
+ * ¿Cómo recibe cuál de las dos tablas debe modificar?
+    como que las dos tablas?
+ * ¿Sería más claro pasar varios apuntadores o encapsular cada tabla en un tipo?
+    eh,,,,,,, no see!!
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — insertar_literal
+ * RECIBIR cuál tabla modificar y qué texto guardar.
+ * ASEGURAR espacio en esa tabla.
+ * COPIAR el texto a memoria propia.
+ * GUARDAR posición igual a usados y apuntador a la copia.
+ * INCREMENTAR usados.
+ * DEVOLVER la posición recién creada.
+ * La acción de real pasa la tabla de reales; la de cadena pasa la de cadenas.
+ * Cada tabla tiene su propio contador: ambas pueden tener una posición 0.
+ * No llamar a buscar antes: el enunciado exige una entrada por aparición.
+ * Elige UN responsable de copiar; si esta función copia, la acción no debe
+ * hacer otra copia innecesaria. Para subcadenas puedes pasar origen y longitud.
+ */
+
+/* funciones de impresión
+    no se
+ * Diseña encabezados y columnas antes de escribir ciclos.
+ * ¿Cómo distinguirás claramente clase y valor en la secuencia de tokens?
+    eh pues con regex para (x,x) y asi
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — imprimir resultados
+ * IMPRIMIR encabezado de tabla de símbolos.
+ * RECORRER sus entradas y mostrar posición, nombre y tipo.
+ * IMPRIMIR encabezado de reales y recorrer posición, dato.
+ * IMPRIMIR encabezado de cadenas y recorrer posición, dato.
+ * IMPRIMIR encabezado de tokens.
+ * RECORRER tokens en orden y mostrar los dos campos entre paréntesis.
+ * Finalmente mostrar cantidad de errores para saber si la entrada fue válida.
+ * No necesitas regex para producir la salida: printf o fprintf dan formato.
+ * Mostrar delimitadores visuales en la salida ayuda a distinguir "" de espacios,
+ * aunque esos delimitadores no formen parte del dato almacenado.
+ */
+
+/* liberar_recursos
+    no se
+ * Libera primero cada cadena interna y después su arreglo contenedor.
+ * ¿Qué colecciones contienen cadenas propias y cuál sólo contiene enteros?
+    eh eh eh ehhhhhh ehhhhhhhh no se
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — liberar recursos
+ * PARA cada símbolo existente: liberar la copia de su nombre.
+ * PARA cada literal real existente: liberar su dato.
+ * PARA cada literal cadena existente: liberar su dato.
+ * LIBERAR los tres arreglos que contenían esas entradas.
+ * LIBERAR el arreglo de tokens (sus campos enteros no se liberan individualmente).
+ * NO liberar catálogos escritos como textos fijos, ni yytext.
+ * Si prevés reutilizar las colecciones, dejar apuntadores nulos y contadores cero.
+ * Sólo recorrer usados, nunca capacidad: el espacio sin usar no contiene entradas.
+ * Usar también esta limpieza al abandonar por un fallo fatal de tu código.
+ * El buffer interno de Flex lo gestiona Flex; no es una cadena de tu tabla.
+ */
+
+/* main
+ * 1. ¿Qué cantidad exacta de argumentos esperas y qué mensaje de uso mostrarás?
+    eh no se, el archivo de ingreso del programa y no se
+ * 2. ¿Cómo abres argv correspondiente y cómo detectas el fallo?
+    con un apuntador?
+ * 3. ¿Qué variable de Flex debe apuntar al archivo?
+    ah yytext creo no?
+ * 4. ¿Qué función inicia el escaneo?
+    no se
+ * 5. ¿Cuándo cierras, imprimes y liberas?
+    eh no se
+ * 6. ¿Qué códigos de salida distinguen cada clase de fallo?
+    no se
+ *
+ * Prueba main primero con un archivo vacío. Luego añade un solo lexema válido.
+ */
+
+/* REVISIÓN / PSEUDOCÓDIGO — main
+ * INICIAR colecciones vacías y contador de errores en cero.
+ * SI argc no es 2:
+ *   mostrar uso con nombre del programa y un archivo; terminar con estado de uso.
+ * argv[0] es el nombre del ejecutable; argv[1] es el archivo de entrada.
+ * ABRIR argv[1] para lectura con fopen.
+ * SI no se pudo abrir: informar el fallo y terminar con estado de archivo.
+ * ASIGNAR el flujo abierto a yyin, no a yytext.
+ * EJECUTAR yylex; deja que recorra todo el archivo.
+ *   No devolver un token desde cada acción si quieres que una sola llamada
+ *   recorra todo: las acciones deben agregarlo a tu secuencia y seguir.
+ * CERRAR el archivo con fclose.
+ * MOSTRAR tablas y secuencia, incluso si hubo errores léxicos recuperables.
+ * LIBERAR recursos.
+ * DEVOLVER un estado acordado: por ejemplo 0 éxito, 1 errores léxicos,
+ * 2 uso incorrecto, 3 archivo y 4 memoria. Estos números son una propuesta.
+ * Si una operación propia falla durante el análisis, propagar el fallo para
+ * detenerlo y pasar por la misma limpieza antes de salir.
+ * Ojo con erratas de DescripcionUsoLEX.pdf: fprintf necesita un flujo destino;
+ * los flujos FILE abiertos con fopen se cierran con fclose, no con close.
+ * Escribe main con tipo de retorno int; los ejemplos antiguos omiten ese detalle.
+ */

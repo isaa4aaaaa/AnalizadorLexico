@@ -1,0 +1,9 @@
+// Declaraciones y asignaciones de ejemplo.
+int I_contador_I := p10i $$
+flot I_medida_I := -4.4E2 $$
+cad I_mensaje_I := <Valor @n> $$
+
+/* Se reutiliza el identificador, pero cada literal se inserta de nuevo. */
+I_contador_I :+ p1i $$
+mostrar <Valor @n> I_contador_I $$
+flot I_otra_medida_I := -4.4E2 $$
