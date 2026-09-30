@@ -16,6 +16,8 @@ Flex divide el archivo con dos líneas `%%`:
 
 Las funciones siguen separadas por responsabilidad, aunque ahora están dentro del mismo archivo.
 
+En [Guia_documento.md](Guia_documento.md) quedan los puntos para redactar el documento de entrega: requisitos del PDF, decisiones de diseño, uso de Flex y pruebas que conviene explicar.
+
 ## Datos y funciones que conviene revisar
 
 | Parte | Qué hace |
@@ -90,7 +92,7 @@ gcc -std=c90 -Wall -Wextra -pedantic-errors lex.yy.c -o analizador -lfl
 python3 probar.py ./analizador
 ```
 
-Ejecuta 34 pruebas, algunas con varios subcasos, y debe terminar en `OK`. Una de ellas recorre los 11 archivos de `ejemplos/` y compara todos sus tokens, tablas y líneas de error con `esperados.json`. También se prueban bytes nulos, archivos sin salto final, saltos de Windows, límites de capacidad y textos de 70 000 caracteres. Python sólo se usa para las pruebas, no para compilar ni ejecutar el analizador.
+Ejecuta 34 pruebas, algunas con varios subcasos, y debe terminar en `OK`. Una de ellas recorre los 11 archivos de `ejemplos/` y compara todos sus tokens, tablas y líneas de error con `esperados.json`. También se prueban bytes nulos, archivos sin salto final, rechazo de `\r` como delimitador, límites de capacidad y textos de 70 000 caracteres. Se usan saltos de línea `\n`, como en Linux. Python sólo se usa para las pruebas, no para compilar ni ejecutar el analizador.
 
 Para revisar un caso manualmente, por ejemplo la recuperación después de errores:
 

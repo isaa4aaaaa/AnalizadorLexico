@@ -60,6 +60,6 @@ Desde `codigo/`:
 python3 probar.py ./analizador
 ```
 
-Además de estos archivos, las pruebas crean entradas temporales con bytes nulos y otros caracteres no imprimibles, saltos CRLF, tokens al final sin salto de línea, aperturas sin cierre y textos de 70 000 caracteres. También revisan las capacidades 15, 16, 17, 31, 32, 33, 63, 64 y 65 para detectar problemas al ampliar arreglos.
+Además de estos archivos, las pruebas crean entradas temporales con bytes nulos y otros caracteres no imprimibles, un `\r` que debe reportarse como error fuera de comentarios, tokens al final sin salto de línea, aperturas sin cierre y textos de 70 000 caracteres. También revisan las capacidades 15, 16, 17, 31, 32, 33, 63, 64 y 65 para detectar problemas al ampliar arreglos.
 
 Que las pruebas pasen comprueba estos casos concretos; no demuestra que toda entrada posible esté libre de fallos. Los ejemplos y las pruebas son material de revisión y no se agregan al ZIP de entrega.

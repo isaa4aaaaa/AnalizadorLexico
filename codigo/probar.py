@@ -182,7 +182,7 @@ class PruebasAnalizador(unittest.TestCase):
         self.assertEqual(errores.count('Linea'), 3)
 
     def test_archivo_vacio_y_delimitadores(self):
-        for entrada in ['', ' \t\r\n', '// nada', '/**/']:
+        for entrada in ['', ' \t\n', '// nada', '/**/']:
             with self.subTest(entrada=entrada):
                 salida, errores, tokens = self.analizar(entrada)
                 self.assertEqual(tokens, [])
@@ -250,11 +250,12 @@ class PruebasAnalizador(unittest.TestCase):
                 self.assertEqual(tokens, [])
                 self.assertIn('Linea 1:', errores)
 
-    def test_finales_de_linea_windows(self):
-        _, errores, tokens = self.analizar(b'int\r\n/* a\r\nb */\r\n? bool\r\n', 1)
+    def test_retorno_de_carro_no_es_delimitador(self):
+        _, errores, tokens = self.analizar(b'int\r\nbool\n', 1)
         self.assertEqual(tokens, [(0, 10), (0, 0)])
         self.assertEqual(errores.count('Linea'), 1)
-        self.assertIn('Linea 4:', errores)
+        self.assertIn('Linea 1:', errores)
+        self.assertIn('0x0D', errores)
 
     def test_bytes_desconocidos_fuera_de_cadena(self):
         for valor in [0, 1, 31, 127, 128, 255]:
